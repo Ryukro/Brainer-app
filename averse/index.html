@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Averse</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sky-1: #0a1322;
+    --text: #e8f1fb;
+    --muted: #8ea3bf;
+    --accent: #5fc4ff;
+    --danger: #ff7a59;
+    --ok: #6be3a4;
+    --gold: #ffd66b;
+    --panel: rgba(16, 28, 48, 0.92);
+    --tile: #0f1d33;
+    --key: #22344f;
+    --key-press: #31496d;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--sky-1); color: var(--text);
+    font-family: "Fredoka", system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden;
+    user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+  #app { height: 100vh; height: 100dvh; display: flex; flex-direction: column;
+    max-width: 560px; margin: 0 auto;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+
+  /* Bandeau */
+  #hud { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 10px 14px 8px; font-weight: 600; }
+  .hud-block { display: flex; flex-direction: column; line-height: 1.1; min-width: 44px; }
+  .hud-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 500; }
+  .hud-value { font-size: 22px; font-variant-numeric: tabular-nums; }
+  #serie.bump { animation: bump .25s ease; }
+  #serie.drop { animation: shrink .3s ease; color: var(--danger); }
+  #serie.bonus { color: var(--gold); }
+  @keyframes bump { 50% { transform: scale(1.25); color: var(--ok); } }
+  @keyframes shrink { 50% { transform: scale(.8); } }
+  #lives { display: flex; gap: 4px; }
+  #lives svg { width: 18px; height: 22px; transition: opacity .3s, transform .3s; }
+  #lives svg.lost { opacity: .2; transform: scale(.8); }
+  #pauseBtn { background: none; border: 1px solid #33496a; color: var(--text); border-radius: 10px;
+    width: 38px; height: 38px; font-size: 16px; cursor: pointer; }
+  .hidden { display: none !important; }
+  body.menu #hud, body.menu #answerRow, body.menu #kbHint, body.menu #pad { display: none !important; }
+
+  /* Zone de jeu */
+  #stage { position: relative; flex: 1; min-height: 0; }
+  #stage.shake { animation: stageShake .4s ease; }
+  @keyframes stageShake { 12% { transform: translate(-8px, 3px); } 28% { transform: translate(7px, -4px); }
+    44% { transform: translate(-5px, 2px); } 62% { transform: translate(4px, -2px); } 80% { transform: translate(-2px, 1px); } }
+  #cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+  /* Réponse et pavé */
+  #answerRow { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 8px 14px 6px; }
+  #answer { min-width: 150px; height: 52px; border-radius: 14px; background: var(--tile); border: 2px solid #2b4266;
+    font-size: 30px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    font-variant-numeric: tabular-nums; letter-spacing: .04em; transition: border-color .15s; }
+  #answer.ok { border-color: var(--ok); }
+  #answer.err { border-color: var(--danger); animation: shake .3s; }
+  #answer .placeholder { color: #3e5578; font-size: 18px; font-weight: 500; }
+  @keyframes shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+  #kbHint { display: none; text-align: center; color: var(--muted); font-size: 13px; padding: 0 0 14px; }
+  #pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 6px 14px 14px; }
+  #pad button { height: 54px; border: none; border-radius: 14px; background: var(--key); color: var(--text);
+    font-family: inherit; font-size: 26px; font-weight: 600; cursor: pointer; touch-action: manipulation; }
+  #pad button.pressed { background: var(--key-press); transform: scale(.97); }
+  #pad button[data-k="ok"] { background: #1f6fb0; }
+  #pad button[data-k="ok"].pressed { background: #2a86d1; }
+  #pad button[data-k="del"] { font-size: 22px; color: #b8c8de; }
+  @media (hover: hover) and (pointer: fine) { #pad { display: none; } #kbHint { display: block; } }
+  @media (max-height: 640px) { #pad button { height: 46px; font-size: 22px; } #answer { height: 44px; font-size: 26px; } }
+
+  /* Écrans */
+  .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(6, 12, 22, 0.62); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); z-index: 10;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
+  .overlay.show { display: flex; }
+  .overlay.light { background: rgba(6, 12, 22, 0.35); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .card { width: 100%; max-width: 420px; max-height: 100%; overflow-y: auto; background: var(--panel);
+    border: 1px solid #2a3f60; border-radius: 22px; padding: 24px 20px; text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+  .card h1 { font-size: 56px; margin: 4px 0 0; letter-spacing: .02em; line-height: 1; cursor: default;
+    background: linear-gradient(180deg, #e9f6ff, #7fc6ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .card h2 { margin: 0 0 6px; font-size: 26px; }
+  .cat { display: inline-block; font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: var(--accent);
+    border: 1px solid #2b5a86; border-radius: 999px; padding: 3px 10px; font-weight: 600; }
+  .tagline { color: var(--muted); margin: 10px 0 18px; font-size: 15px; line-height: 1.4; font-weight: 500; }
+  .btn { display: block; width: 100%; border: none; border-radius: 14px; padding: 15px; margin-top: 10px;
+    font-family: inherit; font-size: 19px; font-weight: 600; cursor: pointer; color: var(--text); background: var(--key); }
+  .btn.primary { background: linear-gradient(180deg, #3aa6ef, #1f6fb0); }
+  .btn.ghost { background: transparent; border: 1px solid #33496a; font-size: 16px; padding: 12px; }
+  .btn.danger { background: transparent; border: 1px solid #6b3a33; color: #ffb3a2; font-size: 15px; padding: 11px; }
+  .btn.dev { background: #2c2440; border: 1px dashed #7b64b8; font-size: 15px; padding: 11px; }
+  .row { display: flex; gap: 8px; } .row .btn { flex: 1; }
+  .note { color: var(--muted); font-size: 12px; margin-top: 12px; font-weight: 500; line-height: 1.4; }
+
+  .mode { display: block; width: 100%; text-align: left; border: none; border-radius: 14px; padding: 13px 15px; margin-top: 10px;
+    font-family: inherit; color: var(--text); background: var(--tile); cursor: pointer; border: 1px solid #22385a; }
+  .mode b { font-size: 19px; display: block; }
+  .mode span { font-size: 13px; color: var(--muted); font-weight: 500; }
+  .mode .rec { float: right; font-size: 13px; color: var(--accent); font-weight: 600; margin-top: 3px; }
+  .mode b i { font-style: normal; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-left: 6px; }
+
+  .levels { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 12px; }
+  .lvl { border: 1px solid #22385a; border-radius: 12px; background: var(--tile); color: var(--text); font-family: inherit;
+    padding: 10px 8px; cursor: pointer; text-align: left; }
+  .lvl b { display: block; font-size: 17px; }
+  .lvl span { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .lvl .bar { height: 4px; border-radius: 2px; background: #1b2c47; margin-top: 6px; overflow: hidden; }
+  .lvl .bar i { display: block; height: 100%; background: var(--accent); }
+
+  .tuto-illus { background: #0b1628; border-radius: 16px; padding: 10px; margin: 6px 0 12px; }
+  .tuto-illus svg { width: 100%; height: 150px; display: block; }
+  .tuto-text { font-size: 16px; line-height: 1.45; color: #c4d3e6; font-weight: 500; min-height: 92px; }
+  .dots { display: flex; justify-content: center; gap: 6px; margin: 10px 0 2px; }
+  .dots i { width: 8px; height: 8px; border-radius: 50%; background: #2b4266; }
+  .dots i.on { background: var(--accent); }
+
+  .big-score { font-size: 56px; font-weight: 700; line-height: 1; margin: 6px 0 2px; font-variant-numeric: tabular-nums; }
+  .big-score small { font-size: 24px; color: var(--muted); font-weight: 600; }
+  .record { display: inline-block; background: #2b5a2f; color: #b9f5c4; border-radius: 999px; padding: 4px 12px;
+    font-size: 14px; margin: 6px 0 4px; }
+  .sub { color: var(--muted); font-size: 14px; font-weight: 500; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 14px 0 6px; }
+  .tile { background: var(--tile); border-radius: 12px; padding: 10px 8px; }
+  .tile .v { font-size: 21px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .tile .l { font-size: 12px; color: var(--muted); font-weight: 500; }
+
+  table.recs { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; margin-top: 10px; }
+  table.recs th { color: var(--muted); font-weight: 500; font-size: 12px; text-align: right; padding: 4px 6px; }
+  table.recs th:first-child, table.recs td:first-child { text-align: left; }
+  table.recs td { padding: 6px; text-align: right; font-weight: 500; }
+  table.recs tr:nth-child(even) td { background: var(--tile); }
+  table.recs td.sep { border-top: 1px solid #2a3f60; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 8px; justify-content: center; }
+  .chip { border: 1px solid #2b4266; background: transparent; color: var(--muted); border-radius: 999px; padding: 4px 10px;
+    font-family: inherit; font-size: 13px; cursor: pointer; }
+  .chip.on { background: #1f6fb0; border-color: #1f6fb0; color: #fff; }
+  #chart { width: 100%; height: 150px; display: block; background: var(--tile); border-radius: 12px; }
+  #devBox { width: 100%; height: 120px; margin-top: 8px; background: #0b1628; color: var(--text); border: 1px solid #2b4266;
+    border-radius: 10px; font-size: 11px; font-family: ui-monospace, monospace; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hud">
+    <div class="hud-block"><span class="hud-label">Score</span><span class="hud-value" id="score">0</span></div>
+    <div class="hud-block"><span class="hud-label">Série</span><span class="hud-value" id="serie">0</span></div>
+    <div class="hud-block" id="timeBlock"><span class="hud-label" id="timeLabel">Temps</span><span class="hud-value" id="time">2:00</span></div>
+    <div id="lives" aria-label="Vies"></div>
+    <button id="pauseBtn" aria-label="Pause">❚❚</button>
+  </div>
+  <div id="stage"><canvas id="cv"></canvas></div>
+  <div id="answerRow"><div id="answer"><span class="placeholder">Ta réponse</span></div></div>
+  <div id="kbHint">Tape le résultat au clavier · <b>Entrée</b> pour valider · <b>Échap</b> pour la pause</div>
+  <div id="pad">
+    <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+    <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+    <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+    <button data-k="del" aria-label="Effacer">⌫</button><button data-k="0">0</button><button data-k="ok">OK</button>
+  </div>
+</div>
+
+<!-- Accueil -->
+<div class="overlay light" id="home">
+  <div class="card">
+    <span class="cat">Numérique</span>
+    <h1 id="title">Averse</h1>
+    <p class="tagline">Les calculs tombent du ciel.<br>Résous-les avant qu'ils touchent le sol.</p>
+    <button class="btn primary" id="goPlay">Jouer</button>
+    <button class="btn ghost" id="goTuto">Tutoriel</button>
+    <button class="btn ghost" id="goStats">Stats</button>
+    <div id="devZone" class="hidden">
+      <button class="btn dev" id="devCopy">Copier mes données</button>
+      <textarea id="devBox" class="hidden" readonly></textarea>
+      <div class="note" id="devNote">Mode développeur (appui long de 2 s sur le titre pour le fermer).</div>
+    </div>
+  </div>
+</div>
+
+<!-- Choix du mode -->
+<div class="overlay light" id="modes">
+  <div class="card">
+    <h2>Jouer</h2>
+    <button class="mode" id="mNiveaux"><span class="rec" id="recNiveaux"></span><b>Niveaux</b><span>Maîtrises-tu ce niveau ? 2 min</span></button>
+    <button class="mode" id="mSurvie"><span class="rec" id="recSurvie"></span><b>Tempête<i>Survie</i></b><span>Jusqu'où tiendras-tu dans un orage sans fin ?</span></button>
+    <button class="btn ghost" id="modesBack">Retour</button>
+  </div>
+</div>
+
+<!-- Grille des niveaux -->
+<div class="overlay light" id="levels">
+  <div class="card">
+    <h2>Niveaux</h2>
+    <div class="levels" id="levelGrid"></div>
+    <button class="btn ghost" id="levelsBack">Retour</button>
+  </div>
+</div>
+
+<!-- Tutoriel -->
+<div class="overlay light" id="tuto">
+  <div class="card">
+    <h2 id="tutoTitle"></h2>
+    <div class="tuto-illus" id="tutoIllus"></div>
+    <div class="tuto-text" id="tutoText"></div>
+    <div class="dots" id="tutoDots"><i></i><i></i><i></i></div>
+    <div class="row"><button class="btn ghost" id="tutoPrev">Retour</button><button class="btn primary" id="tutoNext">Suivant</button></div>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="overlay light" id="stats">
+  <div class="card">
+    <h2>Stats</h2>
+    <table class="recs" id="recTable"></table>
+    <div class="chips" id="chips"></div>
+    <canvas id="chart"></canvas>
+    <button class="btn ghost" id="statsBack">Retour</button>
+    <button class="btn danger" id="statsReset">Effacer mes stats</button>
+    <div class="note">Stats enregistrées sur cet appareil, dans ce navigateur.</div>
+  </div>
+</div>
+
+<!-- Pause -->
+<div class="overlay" id="pause">
+  <div class="card">
+    <h2>Pause</h2>
+    <p class="tagline">La pluie attend.</p>
+    <button class="btn primary" id="resumeBtn">Reprendre</button>
+    <button class="btn ghost" id="quitBtn">Abandonner</button>
+    <div class="note">Une partie abandonnée n'est pas comptée.</div>
+  </div>
+</div>
+
+<!-- Fin de partie -->
+<div class="overlay" id="over">
+  <div class="card">
+    <h2 id="ovTitle">Fin de l'averse</h2>
+    <div class="sub" id="ovMode"></div>
+    <div class="big-score" id="ovScore">0</div>
+    <div id="ovRecord"></div>
+    <div class="grid">
+      <div class="tile"><div class="v" id="ovPrec">–</div><div class="l">Précision</div></div>
+      <div class="tile"><div class="v" id="ovSerie">0</div><div class="l">Meilleure série</div></div>
+      <div class="tile"><div class="v" id="ovDrops">0</div><div class="l">Gouttes effacées</div></div>
+      <div class="tile"><div class="v" id="ovExtra">–</div><div class="l" id="ovExtraL">Temps moyen / goutte</div></div>
+    </div>
+    <button class="btn primary" id="againBtn">Rejouer</button>
+    <div class="row"><button class="btn ghost" id="changeBtn">Changer</button><button class="btn ghost" id="homeBtn">Accueil</button></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const VERSION = 'v15';
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  // =====================================================================
+  //  LOGIQUE PURE : paramètres des niveaux, calendrier des gouttes, calculs, score.
+  //  Aucun accès au DOM ni au canvas : testable seule, réutilisable dans le hub.
+  // =====================================================================
+  const Logic = (() => {
+    const FALL = 12;                 // durée de chute fixe (s)
+    const LEVELS = 10;
+    const D_MIN = 3, D_MAX = 8;      // densité (gouttes en vol visées) au niveau 1 et au niveau 10
+    const D_STEP = 0.5;              // Tempête au-delà du niveau 10 : +0,5 de densité par niveau…
+    const D_SCREEN = 10;             // …jusqu'à la densité maximale lisible à l'écran (atteinte au niveau 14)
+    const FALL_STEP = 0.9;           // ensuite, chaque niveau raccourcit la chute de 10 % (sans plafond)
+    const LEVEL_TIME = 120;          // mode Niveaux : 2 min, dont une rafale finale
+    const DELUGE = 15;               // durée de la rafale de fin de niveau en Tempête (s) : 25 % de chaque minute
+    const DELUGE_NIV = 30;           // durée de la rafale en mode Niveaux (s) : 25 % des 2 min, même part qu'en Tempête
+    const SURVIE_STEP = 60;          // Tempête (mode « Survie » de REGLES.md) : une minute par niveau (45 s de montée + 15 s de rafale)
+    const SKIP_UNTIL = 8;            // montée rapide : une minute sans goutte au sol fait gagner 2 niveaux, arrivée au niveau 8 au plus
+    const SPECIAL_EVERY = 30;        // goutte dorée toutes les 30 s
+    const STREAK_S = 10;             // à partir de 10 gouttes d'affilée, chaque goutte compte double
+    const ERROR_COST = 1;            // une erreur de saisie coûte le prix d'une goutte (1 point), quel que soit le moment
+    const RARE_WEIGHT = 0.2;         // calculs avec 0 (+/−) ou 0/1 (×/÷) : 5 fois plus rares
+    const SPACING = 0.4, SPACING_DELUGE = 0.3;
+    const REG_SHARE = 0.6, REG_SHARE_DELUGE = 0.2;   // part du compte-gouttes régulier
+    // Réserve de délais aléatoires, moyenne exactement 1 : même charge pour chaque partie, ordre différent
+    const RANDOM_MULTS = [0.25, 0.35, 0.5, 0.6, 0.75, 0.9, 1, 1.15, 1.3, 1.6, 1.6, 2];
+    const SYMS = ['+', '−', '×', '÷'];
+    // Calculs : durcis aux niveaux 3, 6 et 9 (t = dernière table, multiplicateur de 0 à 10 dans les deux sens)
+    const TIERS = [
+      { add: 20, t: 10 },   // niveaux 1–2 : +/− 0–20, tables de 2 à 10
+      { add: 20, t: 11 },   // niveaux 3–5 : + table de 11
+      { add: 50, t: 12 },   // niveaux 6–8 : +/− 0–50, + table de 12
+      { add: 50, t: 13 },   // niveaux 9–10 : + table de 13
+    ];
+    const tierOf = L => L <= 2 ? 0 : L <= 5 ? 1 : L <= 8 ? 2 : 3;
+    // Densité d'un niveau : 3 → 8 du niveau 1 au niveau 10, puis +0,5 par niveau jusqu'à 10
+    const densOf = L => L <= LEVELS ? D_MIN + (D_MAX - D_MIN) * (Math.max(L, 0) - 1) / (LEVELS - 1) : Math.min(D_SCREEN, D_MAX + D_STEP * (L - LEVELS));
+    // Chute d'un niveau : 12 s, puis −10 % par niveau une fois la densité maximale atteinte
+    const capLevel = LEVELS + (D_SCREEN - D_MAX) / D_STEP;   // 14
+    const fallOf = L => FALL * Math.pow(FALL_STEP, Math.max(0, L - capLevel));
+    // Rafale : densité + 2 (sans dépasser la densité maximale) ; si la densité est déjà maximale, chute −10 %
+    const rafale = (dens, fall) => dens >= D_SCREEN ? { dens: D_SCREEN, fall: fall * FALL_STEP } : { dens: Math.min(D_SCREEN, dens + 2), fall };
+
+    function shuffle(arr, rand) {
+      for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
+      return arr;
+    }
+    // Rafale de fin de niveau : 60 % de délais très courts, puis des pauses ; moyenne exactement 1
+    function burstBag(n) {
+      n = Math.max(2, n);
+      const s = Math.floor(n * 0.6), long = (n - 0.25 * s) / (n - s);
+      return [...Array(s).fill(0.25), ...Array(n - s).fill(long)];
+    }
+
+    // --- Tranches de temps : { t0, dur, dens, fall, deluge, level } ---
+    function niveauxSegments(L) {
+      const d = densOf(L), r = rafale(d, FALL);
+      return [{ t0: 0, dur: LEVEL_TIME - DELUGE_NIV, dens: d, fall: FALL, deluge: false, level: L },
+              { t0: LEVEL_TIME - DELUGE_NIV, dur: DELUGE_NIV, dens: r.dens, fall: r.fall, deluge: true, level: L }];
+    }
+    // Tempête : une minute au niveau L, à partir de t0. La densité et la chute vont de celles du niveau
+    // quitté (fromL) à celles du niveau L en 3 marches de 15 s, puis 15 s de rafale.
+    function survieSegments(L, t0, fromL) {
+      const step = (SURVIE_STEP - DELUGE) / 3;
+      const d0 = densOf(fromL), d1 = densOf(L), f0 = fallOf(Math.max(fromL, 1)), f1 = fallOf(L);
+      const segs = [1, 3, 5].map((f, i) => ({ t0: t0 + i * step, dur: step, dens: lerp(d0, d1, f / 6), fall: lerp(f0, f1, f / 6), deluge: false, level: L }));
+      const r = rafale(d1, f1);
+      segs.push({ t0: t0 + SURVIE_STEP - DELUGE, dur: DELUGE, dens: r.dens, fall: r.fall, deluge: true, level: L });
+      return segs;
+    }
+    // Niveau suivant en Tempête : +2 si la minute s'est passée sans goutte au sol (arrivée ≤ 8), sinon +1
+    const nextSurvieLevel = (L, clean) => clean && L + 2 <= SKIP_UNTIL ? L + 2 : L + 1;
+
+    // --- Calendrier : instants d'apparition, nombre fixe par tranche (équité) ---
+    function segmentTimes(seg, rand) {
+      const share = seg.deluge ? REG_SHARE_DELUGE : REG_SHARE;
+      const regGap = seg.fall / (seg.dens * share), rndGap = seg.fall / (seg.dens * (1 - share));   // rythme = densité ÷ chute
+      const times = [];
+      const nReg = Math.round(seg.dur / regGap);
+      for (let i = 0; i < nReg; i++) times.push(seg.t0 + (i + 0.5) * seg.dur / nReg);
+      const nRnd = Math.round(seg.dur / rndGap);
+      if (nRnd > 0) {
+        let mults;
+        if (seg.deluge) mults = shuffle(burstBag(nRnd), rand);
+        else { const pool = shuffle(RANDOM_MULTS.slice(), rand); mults = Array.from({ length: nRnd }, (_, i) => pool[i % pool.length]); }
+        const scale = seg.dur / mults.reduce((a, b) => a + b, 0);
+        let acc = 0;
+        for (const m of mults) { acc += m * scale; times.push(seg.t0 + acc - m * scale / 2); }
+      }
+      if (seg.deluge) times.push(seg.t0, seg.t0 + SPACING_DELUGE);   // 2 gouttes injectées dès le début de la rafale
+      return times.sort((a, b) => a - b);
+    }
+    function schedule(segs, rand) { return segs.flatMap(s => segmentTimes(s, rand)).sort((a, b) => a - b); }
+    function specialTimes(mode) { return mode === 'survie' ? null : [30, 60, 105]; }   // Niveaux : la 3e au milieu de la rafale ; Tempête : toutes les 30 s, sans fin
+
+    // --- Calculs : pioche sans remise, pioche séparée pour les cas rares ---
+    function combos(sym, T, special) {
+      const out = [], add = (a, b, res, rare) => out.push({ a, b, res, rare });
+      const lo = special ? 2 : 0, N = T.t;
+      const inTables = (x, y) => x <= 10 || y <= 10;   // 11 × 7 oui, 11 × 12 non
+      if (sym === '+') for (let a = 0; a <= T.add; a++) for (let b = 0; b <= T.add; b++) add(a, b, a + b, a === 0 || b === 0);
+      if (sym === '−') for (let a = 0; a <= T.add; a++) for (let b = 0; b <= a; b++) add(a, b, a - b, b === 0);
+      if (sym === '×') for (let a = lo; a <= N; a++) for (let b = lo; b <= N; b++) {
+        if (!inTables(a, b) || (a <= 1 && b <= 1)) continue;   // jamais 0 × 0, 0 × 1, 1 × 1
+        add(a, b, a * b, a <= 1 || b <= 1);
+      }
+      if (sym === '÷') for (let d = special ? 2 : 1; d <= N; d++) for (let q = special ? 1 : 0; q <= N; q++) {
+        if (inTables(d, q)) add(d * q, d, q, d === 1 || d * q <= 1);
+      }
+      return out;
+    }
+    function createPicker(rand) {
+      const pools = {}, bags = {};
+      const drawFrom = (key, items) => { let b = bags[key]; if (!b || !b.length) b = bags[key] = shuffle(items.slice(), rand); return b.pop(); };
+      function pick(sym, ti, special) {
+        const id = `${sym}|${ti}|${special ? 1 : 0}`;
+        let p = pools[id];
+        if (!p) {
+          const all = combos(sym, TIERS[ti], special);
+          p = pools[id] = { common: all.filter(c => !c.rare), rare: all.filter(c => c.rare) };
+          p.pRare = p.rare.length * RARE_WEIGHT / (p.rare.length * RARE_WEIGHT + p.common.length);
+        }
+        const useRare = p.rare.length && (!p.common.length || rand() < p.pRare);
+        return useRare ? drawFrom(id + 'r', p.rare) : drawFrom(id + 'c', p.common);
+      }
+      // goutte dorée : toujours × ou ÷, jamais avec 0 ou 1
+      return function makeOp(L, special) {
+        const sym = special ? drawFrom('sym*', ['×', '÷']) : drawFrom('sym', SYMS);
+        const c = pick(sym, tierOf(L), special);
+        return { a: c.a, b: c.b, sym, res: c.res };
+      };
+    }
+
+    // --- Score ---
+    // Série = gouttes effacées d'affilée. Une goutte vaut 1, ou 2 si la série atteint déjà STREAK_S.
+    const dropValue = streakBefore => streakBefore >= STREAK_S ? 2 : 1;
+    const rawMax = n => n + Math.max(0, n - STREAK_S);
+    // Niveaux : partie parfaite = 1 000 × niveau exactement
+    const niveauxScore = (raw, n, L) => Math.round(1000 * L * raw / rawMax(n));
+    // Unité commune à tous les modes : valeur d'un point (une goutte sans bonus) en mode Niveaux au niveau L.
+    // Le nombre de gouttes d'une partie de Niveaux est fixe (calendrier à comptes fixes), donc l'unité aussi.
+    const nivCount = L => schedule(niveauxSegments(L), Math.random).length + specialTimes('niveaux').length;
+    const UNIT = Array.from({ length: LEVELS }, (_, i) => 1000 * (i + 1) / rawMax(nivCount(i + 1)));
+    // Au-delà du niveau 10 (Tempête) : la valeur grandit comme le max des niveaux, × L / 10
+    const unitOf = L => L <= LEVELS ? UNIT[Math.max(1, L) - 1] : UNIT[LEVELS - 1] * L / LEVELS;
+
+    return { ERROR_COST, FALL, LEVELS, LEVEL_TIME, DELUGE, DELUGE_NIV, SURVIE_STEP, SPECIAL_EVERY, STREAK_S, SPACING, SPACING_DELUGE, D_SCREEN,
+      densOf, fallOf, rafale, tierOf, niveauxSegments, survieSegments, nextSurvieLevel, segmentTimes, schedule, specialTimes,
+      combos, createPicker, dropValue, rawMax, niveauxScore, burstBag, unitOf };
+  })();
+
+  // =====================================================================
+  //  STOCKAGE : stats et journal (try/catch, le jeu marche sans stockage)
+  // =====================================================================
+  const STATS_KEY = 'brainer.averse.stats.v1', JOURNAL_KEY = 'brainer.averse.journal', DEV_KEY = 'brainer.averse.dev';
+  const emptyRec = () => ({ games: 0, best: 0, bestSerie: 0 });
+  const emptyStats = () => ({ scale: 3, levels: Array.from({ length: 10 }, emptyRec), chrono: emptyRec(), survie: Object.assign(emptyRec(), { bestLevel: 0 }), history: [] });
+  const load = (k, d) => { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : d; } catch (e) { return d; } };
+  const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* stockage indisponible */ } };
+  // v15 : l'ancien identifiant « mort » (Mort subite) est lu comme « survie » ; records conservés (REGLES.md §3 et §6)
+  const MODE_ALIAS = { mort: 'survie' };
+  const renameMode = e => { if (e && MODE_ALIAS[e.mode]) e.mode = MODE_ALIAS[e.mode]; return e; };
+  const stored = load(STATS_KEY, {}) || {};
+  if (stored.mort && !stored.survie) stored.survie = stored.mort;
+  delete stored.mort;
+  let stats = Object.assign(emptyStats(), stored);
+  if (!Array.isArray(stats.history)) stats.history = [];
+  stats.history.forEach(renameMode);
+  // v14 : Déluge et Tempête passent à l'échelle du mode Niveaux ; leurs anciens records ne sont plus comparables
+  if ((stats.scale || 1) < 2) {
+    stats.chrono = emptyRec(); stats.survie = Object.assign(emptyRec(), { bestLevel: 0 });
+    stats.history = stats.history.filter(e => e.mode === 'niveaux'); stats.scale = 2;
+    save(STATS_KEY, stats);
+  }
+  // v15 : rafale de 30 s en Niveaux, donc plus de gouttes par niveau et une valeur de point plus basse ;
+  // les records de Tempête ne sont plus comparables et repartent de zéro (ceux des Niveaux, toujours sur 1 000 × niveau, sont gardés)
+  if (stats.scale < 3) {
+    stats.survie = Object.assign(emptyRec(), { bestLevel: 0 });
+    stats.history = stats.history.filter(e => e.mode !== 'survie'); stats.scale = 3;
+    save(STATS_KEY, stats);
+  }
+  let journal = load(JOURNAL_KEY, []);
+  if (!Array.isArray(journal)) journal = [];
+  journal.forEach(renameMode);
+
+  // =====================================================================
+  //  DOM et dimensions
+  // =====================================================================
+  const $ = id => document.getElementById(id);
+  const cv = $('cv'), ctx = cv.getContext('2d'), stage = $('stage');
+  const elScore = $('score'), elSerie = $('serie'), elLives = $('lives'), elAnswer = $('answer'), elTime = $('time');
+  const SCREENS = ['home', 'modes', 'levels', 'tuto', 'stats', 'pause', 'over'];
+  const MENU_SCREENS = ['home', 'modes', 'levels', 'tuto', 'stats'];
+  // Écrans de menu : pas d'interface de jeu, la tempête occupe tout le fond
+  function show(name) { SCREENS.forEach(s => $(s).classList.toggle('show', s === name)); document.body.classList.toggle('menu', MENU_SCREENS.includes(name)); }
+  const DROP_SVG = '<svg viewBox="0 0 18 22"><path d="M9 1 C9 1 2 10 2 14.5 A7 7 0 0 0 16 14.5 C16 10 9 1 9 1Z" fill="#7fc6ff"/></svg>';
+  const OP_FONT = '600 18px Fredoka, system-ui, sans-serif';
+  const DROP_K = 1.9;   // distance pointe–centre, en rayons
+
+  let W = 0, H = 0, DPR = 1, groundY = 0, COLS = 4;
+  // calcul posé : 1er nombre en haut, opérateur + 2e nombre dessous, alignés à droite
+  function dropSize(a, sym, b) {
+    const bw = Math.max(ctx.measureText(a).width, ctx.measureText(sym).width + 5 + ctx.measureText(b).width);
+    return { bw, R: Math.max(28, Math.round(Math.hypot(bw / 2, 19) + 5)) };
+  }
+  function resize() {
+    const r = stage.getBoundingClientRect();
+    DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+    W = Math.max(1, r.width); H = Math.max(1, r.height);
+    cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    groundY = H - 22;
+    // colonnes assez larges pour la plus grosse goutte possible
+    ctx.font = OP_FONT;
+    const rMax = Math.max(...[['130', '÷', '13'], ['50', '+', '50'], ['50', '−', '50']].map(s => dropSize(...s).R));
+    COLS = Math.max(3, Math.floor(W / (2 * rMax + 8)));
+    if (S) S.ops.forEach(o => { o.col = Math.min(o.col, COLS - 1); o.x = (W / COLS) * (o.col + 0.5); });
+    initRain();
+  }
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const rint = (a, b) => Math.floor(rnd(a, b + 1));
+
+  // =====================================================================
+  //  EFFETS (décor, indépendants de la logique)
+  // =====================================================================
+  const FX = { particles: [], floaters: [], bolts: [], impacts: [], wind: [], flash: 0, burst: 0, groundHit: 0,
+    skyFlash: 0, gust: 0, gustT: 0, boltT: 3, storm: 0, stormy: false };
+  let rain = [], windFx = 0;
+  function initRain() {
+    const n = Math.round(W * H / 6000);
+    rain = Array.from({ length: n }, () => ({ x: rnd(0, W), y: rnd(0, H), l: rnd(8, 18), v: rnd(380, 620) }));
+  }
+  function splash(x, y, gold = false) {
+    for (let i = 0; i < 16; i++) {
+      const a = rnd(0, Math.PI * 2), v = rnd(80, 260);
+      FX.particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 80, r: rnd(2, 4.5), life: rnd(0.45, 0.8), gold });
+    }
+  }
+  function groundSplash(o) {
+    for (let i = 0; i < 10; i++) FX.particles.push({ x: o.x + rnd(-o.w / 2, o.w / 2), y: groundY, vx: rnd(-60, 60), vy: rnd(-220, -90), r: rnd(2, 4), life: rnd(.4, .7), bad: true });
+    FX.impacts.push({ x: o.x, life: 1 }); FX.groundHit = 1;
+  }
+  function makeBolt(x0, x1, yEnd, bg) {
+    const steps = 10, pts = [];
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps, jitter = i === 0 || i === steps ? 0 : rnd(-24, 24);
+      pts.push([x0 + (x1 - x0) * t + jitter, -10 + (yEnd + 10) * t]);
+    }
+    const bi = rint(3, 6), dir = Math.random() < 0.5 ? -1 : 1, branch = [pts[bi]];
+    for (let j = 1; j <= 3; j++) { const p = branch[j - 1]; branch.push([p[0] + dir * rnd(14, 30), p[1] + rnd(16, 34)]); }
+    FX.bolts.push({ pts, branch, life: 0.5, bg });
+  }
+  // éclair de fond : s'arrête dans le ciel, ne touche pas l'eau
+  function skyBolt() { const x0 = rnd(W * 0.1, W * 0.9); makeBolt(x0, clamp(x0 + rnd(-70, 70), 10, W - 10), rnd(H * 0.28, H * 0.55), true); FX.skyFlash = 1; }
+  function strike(x) { makeBolt(clamp(x + rnd(-80, 80), 10, W - 10), x, groundY, false); }
+  function shakeStage() { stage.classList.remove('shake'); void stage.offsetWidth; stage.classList.add('shake'); }
+  function vibrate(p) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) { /* non supporté */ } }
+
+  // =====================================================================
+  //  PARTIE : contrat init → update → render → score → fin
+  // =====================================================================
+  let S = null;
+  const Game = {
+    init(mode, level) {
+      const segs = mode === 'niveaux' ? Logic.niveauxSegments(level) : Logic.survieSegments(1, 0, 0);
+      const queue = Logic.schedule(segs, Math.random);
+      const specials = Logic.specialTimes(mode);
+      S = { mode, level: mode === 'survie' ? 1 : level, startLevel: level,
+        segs, queue, qi: 0, specials, si: 0, nextSpecial: 30, blockStart: 0, blockClean: true,
+        total: mode === 'survie' ? 0 : queue.length + specials.length,   // nombre fixe de gouttes en Niveaux
+        makeOp: Logic.createPicker(Math.random),
+        t: 0, clock: 0, respite: 0, ops: [], nextId: 1, lastSpawn: -10, lastCols: [],
+        lives: mode === 'survie' ? 3 : Infinity, streak: 0, bestStreak: 0, raw: 0, pts: 0,
+        correct: 0, errors: 0, cleared: 0, times: [], input: '', playing: true, paused: false, deluge: false, ended: false,
+        log: { drops: [], typed: [] } };
+      FX.particles = []; FX.floaters = []; FX.bolts = []; FX.impacts = []; FX.wind = [];
+      renderLives(); updateHud(); setInput('');
+    },
+    segAt(t) { let s = S.segs[0]; for (const g of S.segs) if (g.t0 <= t) s = g; return s; },
+    // Une goutte n'apparaît que dans une colonne libre : jamais de chevauchement
+    pickColumn(speed) {
+      const free = [];
+      // marge : traînée + espace ; si la nouvelle goutte est plus rapide, on ajoute ce qu'elle rattrapera avant que l'autre touche le sol
+      const gapNeeded = o => 26 + Math.max(0, speed - o.speed) * Math.max(0, groundY - o.y) / o.speed;
+      for (let c = 0; c < COLS; c++) if (S.ops.every(o => o.col !== c || o.y - DROP_K * o.R >= gapNeeded(o))) free.push(c);
+      if (!free.length) return -1;
+      const fresh = free.filter(c => !S.lastCols.includes(c));
+      const pool = fresh.length ? fresh : free;
+      return pool[rint(0, pool.length - 1)];
+    },
+    spawn(special, seg) {
+      const speed = (groundY + 60) / seg.fall;   // même vitesse pour toutes les gouttes d'une tranche
+      const col = this.pickColumn(speed);
+      if (col < 0) return false;   // aucune place : la goutte attend
+      const op = S.makeOp(seg.level, special);
+      ctx.font = OP_FONT;
+      const { bw, R } = dropSize(String(op.a), op.sym, String(op.b));
+      const w = 2 * R, h = 2 * R, tip = Math.round(R * (DROP_K - 1));
+      const cw = W / COLS, slack = Math.max(0, (cw - w) / 2 - 3);
+      const x = cw * (col + 0.5) + rnd(-slack, slack);
+      S.lastCols = [col, ...S.lastCols].slice(0, 2);
+      S.ops.push({ id: S.nextId++, ...op, special, col, x, y: -h / 2, w, h, tip, R, bw, speed, born: S.t, bornClock: S.clock, storm: S.deluge, level: seg.level });
+      S.lastSpawn = S.t;
+      return true;
+    },
+    removeDrop(o, outcome) {
+      S.log.drops.push([+o.bornClock.toFixed(2), `${o.a}${o.sym}${o.b}`, o.res, +S.clock.toFixed(2), outcome, o.special ? 1 : 0]);
+    },
+    addPoints(o) {
+      const v = Logic.dropValue(S.streak);
+      S.raw += v; S.streak += 1; S.bestStreak = Math.max(S.bestStreak, S.streak); S.cleared += 1;
+      // Tempête : chaque goutte vaut sa valeur du mode Niveaux au niveau où elle est tombée, cumulée sur la partie
+      if (S.mode === 'survie') { const g = v * Logic.unitOf(o.level); S.pts += g; return Math.round(g); }
+      return Math.round(this.scale() * v);
+    },
+    answer(value) {
+      let hits = S.ops.filter(o => o.res === value);
+      const burst = hits.some(o => o.special);
+      if (burst) hits = S.ops.slice();   // la goutte dorée fait éclater tout l'écran
+      S.log.typed.push([+S.clock.toFixed(2), value, hits.length ? 1 : 0]);
+      if (!hits.length) {
+        // erreur de saisie : coût fixe d'une goutte (la série n'est pas touchée)
+        S.errors += 1;
+        let shown;
+        if (S.mode === 'survie') { const lost = Math.min(Logic.ERROR_COST * Logic.unitOf(S.level), S.pts); S.pts -= lost; shown = Math.round(lost); }
+        else { const lost = Math.min(Logic.ERROR_COST, S.raw); S.raw -= lost; shown = Math.round(this.scale() * lost); }
+        if (shown > 0) FX.floaters.push({ x: W / 2, y: groundY - 30, text: '−' + shown, life: 1, bad: true });
+        return { ok: false };
+      }
+      S.correct += 1;
+      for (const o of hits) {
+        const gain = this.addPoints(o);
+        S.times.push(S.t - o.born);
+        this.removeDrop(o, burst ? 'or' : 'ok');
+        splash(o.x, o.y, burst);
+        FX.floaters.push({ x: o.x, y: o.y, text: '+' + gain, life: 1 });
+      }
+      S.ops = S.ops.filter(o => !hits.includes(o));
+      if (burst) { FX.burst = 1; vibrate([60, 40, 60]); }
+      return { ok: true };
+    },
+    update(dt) {
+      S.t += dt;
+      if (S.respite > 0) S.respite -= dt;
+      else S.clock += dt;   // horloge du jeu, gelée pendant le répit
+      // Tempête : à chaque minute, niveau suivant (+2 si aucune goutte au sol, jusqu'au niveau 8), sans fin
+      if (S.mode === 'survie' && S.clock >= S.blockStart + Logic.SURVIE_STEP) {
+        const from = S.level;
+        S.level = Logic.nextSurvieLevel(from, S.blockClean);
+        S.blockStart += Logic.SURVIE_STEP; S.blockClean = true;   // les points s'accumulent sur toute la partie
+        const segs = Logic.survieSegments(S.level, S.blockStart, from);
+        S.segs = S.segs.concat(segs);
+        S.queue = S.queue.concat(Logic.schedule(segs, Math.random)).sort((a, b) => a - b);
+        updateHud();
+      }
+      const seg = this.segAt(S.clock);
+      const endT = S.mode === 'niveaux' ? Logic.LEVEL_TIME : Infinity;
+      const deluge = seg.deluge && S.clock < endT;
+      if (deluge && !S.deluge) { FX.gust = 2.5; FX.gustT = rnd(3, 5); skyBolt(); FX.boltT = rnd(1, 2); }
+      S.deluge = deluge;
+
+      if (!(S.respite > 0)) {
+        const spaced = S.t - S.lastSpawn >= (S.deluge ? Logic.SPACING_DELUGE : Logic.SPACING);
+        // goutte dorée : attend l'écart minimal et une colonne libre
+        const specialDue = S.specials ? (S.si < S.specials.length && S.specials[S.si] <= S.clock) : S.nextSpecial <= S.clock;
+        if (specialDue && spaced && this.spawn(true, seg)) { if (S.specials) S.si++; else S.nextSpecial += Logic.SPECIAL_EVERY; }
+        // gouttes du calendrier : nombre fixe, jamais sautées ; elles attendent une place si besoin
+        else if (S.qi < S.queue.length && S.queue[S.qi] <= S.clock && S.clock < endT + 60) {
+          const cap = Math.round(seg.dens);
+          const room = S.ops.filter(o => !o.special).length < cap;
+          if (room && spaced && this.spawn(false, seg)) S.qi++;
+        }
+      }
+      for (const o of S.ops) o.y += o.speed * dt;   // vitesse de chute fixe
+      const landed = S.ops.filter(o => o.y + o.h / 2 >= groundY);
+      if (landed.length) {
+        S.ops = S.ops.filter(o => !landed.includes(o));
+        landed.forEach(o => { this.removeDrop(o, 'sol'); groundSplash(o); });
+        S.streak = 0;
+        S.blockClean = false;   // Tempête : pas de saut de niveau après une goutte au sol
+        if (S.mode === 'niveaux') {
+          // Niveaux, sans vies : la goutte est perdue, retour discret là où elle tombe
+          pulseSerie('drop');
+        } else {
+          S.lives -= landed.length;
+          landed.forEach(o => strike(o.x));
+          FX.flash = 1; vibrate(landed.length > 1 ? [120, 60, 120] : 180); shakeStage();
+          renderLives();
+          if (S.lives <= 0) { this.fin(); return; }
+          // l'éclair fait éclater toutes les gouttes restantes : répit de 2 s, sans points
+          S.ops.forEach(o => { this.removeDrop(o, 'eclair'); splash(o.x, o.y); });
+          S.ops = [];
+          S.respite = 2;
+        }
+        updateHud();
+      }
+      // fins de partie
+      if (S.mode === 'niveaux' && S.clock >= Logic.LEVEL_TIME - Logic.DELUGE_NIV && S.qi >= S.queue.length && S.si >= S.specials.length && !S.ops.length) { this.fin(); return; }
+    },
+    render() { draw(); },
+    // Valeur d'un point en Niveaux (1 000 × niveau ÷ points max)
+    scale() { return this.max() / Logic.rawMax(S.total); },
+    score() {
+      if (S.mode === 'survie') return Math.round(S.pts);
+      return Math.round(this.scale() * S.raw);
+    },
+    max() { return S.mode === 'niveaux' ? 1000 * S.level : null; },
+    fin() {
+      if (S.ended) return;
+      S.ended = true; S.playing = false;
+      S.ops.forEach(o => this.removeDrop(o, 'fin'));
+      onGameEnd(this.result());
+    },
+    result() {
+      const att = S.correct + S.errors;
+      return { mode: S.mode, level: S.mode === 'niveaux' ? S.level : null, reached: S.level, score: this.score(), max: this.max(),
+        prec: att ? S.correct / att : null, bestStreak: S.bestStreak, cleared: S.cleared,
+        total: S.mode === 'survie' ? null : S.total,
+        avg: S.times.length ? S.times.reduce((a, b) => a + b, 0) / S.times.length : null };
+    },
+  };
+
+  // =====================================================================
+  //  BOUCLE
+  // =====================================================================
+  let last = 0;
+  function frame(ts) {
+    const dt = Math.min(0.05, (ts - last) / 1000 || 0); last = ts;
+    if (S && S.playing && !S.paused) { Game.update(dt); if (S && S.playing) updateClock(); }
+    updateAmbient(dt);
+    Game.render();
+    requestAnimationFrame(frame);
+  }
+  function updateAmbient(dt) {
+    // orage : pendant la rafale, et tant que des gouttes de la rafale sont à l'écran
+    const menu = document.body.classList.contains('menu');
+    FX.stormy = menu || !!(S && S.playing && (S.deluge || S.ops.some(o => o.storm)));
+    if (menu || (FX.stormy && S.deluge)) { FX.gustT -= dt; if (FX.gustT <= 0) { FX.gust = rnd(1.2, 2); FX.gustT = rnd(3, 5); } }
+    // éclairs de fond pendant l'orage, et de temps en temps sur l'accueil
+    FX.boltT -= dt;
+    if (FX.boltT <= 0) { if (FX.stormy || !S || !S.playing) skyBolt(); FX.boltT = menu ? rnd(1.5, 4) : FX.stormy ? rnd(1.2, 2.6) : rnd(4, 9); }
+    FX.storm += ((FX.stormy ? 1 : 0) - FX.storm) * Math.min(1, dt * 2.5);
+    const boost = 1 + FX.storm * 0.8;
+    windFx = Math.min(1.4, FX.storm * 0.5 + FX.gust * 0.5);
+    const slant = 0.12 + windFx * 0.6;
+    for (const d of rain) {
+      d.y += d.v * dt * boost; d.x -= d.v * dt * slant * boost;
+      if (d.y > H || d.x < -30) { d.y = -d.l; d.x = rnd(0, W + H * slant); }
+    }
+    FX.particles.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 520 * dt; p.life -= dt; });
+    FX.particles = FX.particles.filter(p => p.life > 0);
+    FX.floaters.forEach(f => { f.y -= 50 * dt; f.life -= dt * 1.2; });
+    FX.floaters = FX.floaters.filter(f => f.life > 0);
+    FX.flash = Math.max(0, FX.flash - dt * 2.2);
+    FX.burst = Math.max(0, FX.burst - dt * 1.8);
+    FX.gust = Math.max(0, FX.gust - dt);
+    FX.skyFlash = Math.max(0, FX.skyFlash - dt * 3);
+    const windRate = FX.gust > 0 ? 40 : 10 * FX.storm;
+    if (Math.random() < dt * windRate) FX.wind.push({ x: W + rnd(0, 60), y: rnd(0, groundY * 0.9), len: rnd(60, 160), v: rnd(700, 1100), life: 1, ph: rnd(0, 6) });
+    FX.wind.forEach(w => { w.x -= w.v * dt; w.life -= dt * 0.9; });
+    FX.wind = FX.wind.filter(w => w.life > 0 && w.x + w.len > -20);
+    FX.groundHit = Math.max(0, FX.groundHit - dt * 0.8);
+    FX.bolts.forEach(b => { b.life -= dt; });
+    FX.bolts = FX.bolts.filter(b => b.life > 0);
+    FX.impacts.forEach(i => { i.life -= dt * 0.7; });
+    FX.impacts = FX.impacts.filter(i => i.life > 0);
+  }
+
+  // =====================================================================
+  //  RENDU
+  // =====================================================================
+  // Forme de goutte : pointe en haut, ventre arrondi en bas
+  function dropPath(x, y, R) {
+    const d = R * DROP_K, tipY = y - d, beta = Math.acos(1 / DROP_K);
+    const a1 = -Math.PI / 2 + beta, a2 = -Math.PI / 2 - beta;
+    const t1x = x + R * Math.cos(a1), t2x = x + R * Math.cos(a2), ty = y + R * Math.sin(a1);
+    const cy2 = ty + (tipY - ty) * 0.35;
+    ctx.beginPath();
+    ctx.moveTo(x, tipY);
+    ctx.bezierCurveTo(x + R * 0.06, tipY + d * 0.3, t1x + (x - t1x) * 0.35, cy2, t1x, ty);
+    ctx.arc(x, y, R, a1, a2 + Math.PI * 2);
+    ctx.bezierCurveTo(t2x + (x - t2x) * 0.35, cy2, x - R * 0.06, tipY + d * 0.3, x, tipY);
+    ctx.closePath();
+  }
+  function draw() {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#0a1322'); g.addColorStop(1, '#1c2d49');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    const dfx = FX.storm;
+    if (dfx > 0.01) { ctx.fillStyle = `rgba(2,4,12,${dfx * 0.3})`; ctx.fillRect(0, 0, W, H); }
+    if (FX.skyFlash > 0) { ctx.fillStyle = `rgba(200,215,255,${FX.skyFlash * 0.12})`; ctx.fillRect(0, 0, W, groundY); }
+    // nuages
+    ctx.fillStyle = 'rgba(120,145,180,0.08)';
+    for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.ellipse((i * 0.21 + 0.05) * W, 8 + (i % 2) * 10, W * 0.16, 26, 0, 0, Math.PI * 2); ctx.fill(); }
+    // pluie
+    ctx.strokeStyle = `rgba(170,205,240,${0.16 + dfx * 0.22})`; ctx.lineWidth = 1 + dfx * 0.6;
+    ctx.beginPath();
+    const sl = 0.12 + windFx * 0.6; for (const d of rain) { ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - d.l * sl, d.y + d.l); }
+    ctx.stroke();
+    // rafales de vent
+    for (const w of FX.wind) {
+      ctx.strokeStyle = `rgba(210,225,245,${0.22 * clamp(w.life, 0, 1)})`; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(w.x, w.y);
+      ctx.quadraticCurveTo(w.x + w.len * 0.5, w.y - 6 * Math.sin(w.ph), w.x + w.len, w.y + 3);
+      ctx.stroke();
+    }
+    // éclairs (en fond, derrière les gouttes)
+    for (const b of FX.bolts) {
+      const a = clamp(b.life / 0.3, 0, 1) * (Math.random() < 0.2 ? 0.45 : 1) * (b.bg ? 0.55 : 1);
+      const path = pts => { ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); };
+      ctx.save(); ctx.globalAlpha = a; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.shadowColor = 'rgba(160,200,255,0.95)'; ctx.shadowBlur = 26;
+      ctx.strokeStyle = 'rgba(180,210,255,0.5)'; ctx.lineWidth = 8; path(b.pts); ctx.stroke();
+      ctx.strokeStyle = '#f4f8ff'; ctx.lineWidth = 2.6; path(b.pts); ctx.stroke();
+      ctx.lineWidth = 1.4; path(b.branch); ctx.stroke();
+      ctx.restore();
+    }
+    // sol (flaque)
+    const hit = FX.groundHit;
+    ctx.fillStyle = hit > 0 ? `rgba(255,122,89,${0.15 + hit * 0.35})` : 'rgba(95,196,255,0.12)';
+    ctx.fillRect(0, groundY, W, H - groundY);
+    ctx.strokeStyle = hit > 0 ? `rgba(255,122,89,${0.5 + hit * 0.5})` : 'rgba(127,198,255,0.55)';
+    ctx.lineWidth = 2; ctx.beginPath();
+    const now = performance.now(), tt = now / 600;
+    for (let x = 0; x <= W; x += 4) {
+      let wave = 0;
+      for (const i of FX.impacts) wave += Math.sin((x - i.x) / 9 - now / 70) * 9 * i.life * Math.exp(-Math.abs(x - i.x) / 90);
+      const y = groundY + Math.sin(x / 22 + tt) * 1.6 + wave;
+      x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // gouttes
+    if (S) {
+      ctx.font = OP_FONT; ctx.textBaseline = 'middle';
+      for (const o of S.ops) {
+        const danger = clamp((o.y - groundY * 0.55) / (groundY * 0.45), 0, 1);
+        ctx.strokeStyle = 'rgba(190,225,255,0.25)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(o.x, o.y - o.h / 2 - o.tip - 2); ctx.lineTo(o.x, o.y - o.h / 2 - o.tip - 14); ctx.stroke();
+        dropPath(o.x, o.y, o.R);
+        if (o.special) {
+          ctx.fillStyle = '#ffd66b';
+          ctx.shadowColor = 'rgba(255,190,60,0.85)'; ctx.shadowBlur = 18 + Math.sin(now / 160) * 7;
+        } else {
+          const r = Math.round(207 + 48 * danger), gg = Math.round(233 - 37 * danger), b = Math.round(255 - 85 * danger);
+          ctx.fillStyle = `rgb(${r},${gg},${b})`;
+          ctx.shadowColor = danger > 0.5 ? 'rgba(255,122,89,0.6)' : 'rgba(127,198,255,0.45)'; ctx.shadowBlur = 14;
+        }
+        ctx.fill(); ctx.shadowBlur = 0;
+        ctx.lineWidth = 2; ctx.strokeStyle = o.special ? (danger > 0.5 ? '#ff7a59' : '#ffae2e') : danger > 0.5 ? '#ff9d7f' : '#7fb8ec'; ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        ctx.beginPath(); ctx.ellipse(o.x - o.R * 0.62, o.y - o.R * 0.5, 5, 2.8, -0.9, 0, Math.PI * 2); ctx.fill();
+        const xr = o.x + o.bw / 2, xl = o.x - o.bw / 2;
+        ctx.fillStyle = '#0b1a2e'; ctx.textAlign = 'right';
+        ctx.fillText(String(o.a), xr, o.y - 9);
+        ctx.fillText(String(o.b), xr, o.y + 12);
+        ctx.textAlign = 'left'; ctx.fillText(o.sym, xl, o.y + 1.5);   // opérateur centré entre les 2 nombres
+        ctx.textAlign = 'center';
+        if (o.special) { ctx.font = '700 13px Fredoka, system-ui, sans-serif'; ctx.fillStyle = '#9a5b00'; ctx.fillText('★', o.x, o.y - o.R * 1.2); ctx.font = OP_FONT; }
+      }
+    }
+    // particules
+    for (const p of FX.particles) {
+      ctx.globalAlpha = clamp(p.life * 1.6, 0, 1);
+      ctx.fillStyle = p.bad ? '#ff9d7f' : p.gold ? '#ffd66b' : '#bfe3ff';
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // points gagnés
+    ctx.font = '700 20px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'center';
+    for (const f of FX.floaters) { ctx.globalAlpha = clamp(f.life, 0, 1); ctx.fillStyle = f.bad ? '#ff9d7f' : '#6be3a4'; ctx.fillText(f.text, f.x, f.y - 26); }
+    ctx.globalAlpha = 1;
+    // flash de perte de vie, éclat doré
+    if (FX.flash > 0) { ctx.fillStyle = `rgba(230,240,255,${FX.flash * 0.14})`; ctx.fillRect(0, 0, W, H); }
+    if (FX.burst > 0) { ctx.fillStyle = `rgba(255,214,107,${FX.burst * 0.25})`; ctx.fillRect(0, 0, W, H); }
+  }
+
+  // =====================================================================
+  //  BANDEAU ET SAISIE
+  // =====================================================================
+  function renderLives() {
+    elLives.innerHTML = '';
+    elLives.classList.toggle('hidden', !!S && S.mode === 'niveaux');
+    for (let i = 0; i < 3; i++) {
+      const s = document.createElement('span'); s.innerHTML = DROP_SVG;
+      const svg = s.firstChild; if (S && i >= S.lives) svg.classList.add('lost');
+      elLives.appendChild(svg);
+    }
+  }
+  const fmtClock = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  function updateClock() {
+    if (!S) return;
+    $('timeBlock').classList.remove('hidden');
+    if (S.mode === 'survie') { $('timeLabel').textContent = 'Niveau'; elTime.textContent = S.level; return; }
+    $('timeLabel').textContent = `Niv. ${S.level}`;
+    elTime.textContent = fmtClock(Logic.LEVEL_TIME - S.clock);
+  }
+  function updateHud() {
+    elScore.textContent = S ? Game.score() : 0;
+    elSerie.textContent = S ? S.streak : 0;
+    elSerie.classList.toggle('bonus', !!S && S.streak >= Logic.STREAK_S);
+  }
+  function setInput(v) {
+    if (S) S.input = v;
+    elAnswer.innerHTML = v ? v : '<span class="placeholder">Ta réponse</span>';
+  }
+  function flashAnswer(cls) {
+    elAnswer.classList.remove('ok', 'err'); void elAnswer.offsetWidth; elAnswer.classList.add(cls);
+    clearTimeout(flashAnswer.t); flashAnswer.t = setTimeout(() => elAnswer.classList.remove(cls), 350);
+  }
+  function pulseSerie(cls) { elSerie.classList.remove('bump', 'drop'); void elSerie.offsetWidth; elSerie.classList.add(cls); }
+  function press(k) {
+    if (!S || !S.playing || S.paused) return;
+    if (k === 'del') setInput(S.input.slice(0, -1));
+    else if (k === 'ok') {
+      if (!S.input) return;
+      const before = S.streak;
+      const r = Game.answer(parseInt(S.input, 10));
+      flashAnswer(r.ok ? 'ok' : 'err');
+      if (r.ok) pulseSerie('bump'); else if (before > 0) pulseSerie('drop');
+      setInput(''); updateHud();
+    }
+    else if (/^[0-9]$/.test(k) && S.input.length < 4) setInput(S.input === '0' ? k : S.input + k);
+  }
+
+  // =====================================================================
+  //  ÉCRANS
+  // =====================================================================
+  let current = { mode: 'niveaux', level: 1 };
+  function start(mode, level) { current = { mode, level }; Game.init(mode, level); updateClock(); show(null); }
+  function quitToHome() { S = null; updateHud(); renderLives(); setInput(''); $('timeBlock').classList.remove('hidden'); elTime.textContent = '2:00'; show('home'); }
+
+  function onGameEnd(res) {
+    // stats : records par niveau et par mode, historique pour la courbe
+    const rec = res.mode === 'niveaux' ? stats.levels[res.level - 1] : stats[res.mode];
+    const isRecord = res.score > rec.best && res.score > 0;
+    rec.best = Math.max(rec.best, res.score);
+    if (res.mode === 'survie') rec.bestLevel = Math.max(rec.bestLevel || 0, res.reached);   // information secondaire
+    rec.games += 1; rec.bestSerie = Math.max(rec.bestSerie, res.bestStreak);
+    stats.history.push({ d: Date.now(), mode: res.mode, level: res.level, reached: res.reached, score: res.score, max: res.max, prec: res.prec });
+    stats.history = stats.history.slice(-200);
+    save(STATS_KEY, stats);
+    // journal détaillé (10 dernières parties)
+    journal.push({ v: VERSION, mode: res.mode, level: res.level, reached: res.reached, d: new Date().toISOString(), score: res.score, max: res.max,
+      prec: res.prec == null ? null : +res.prec.toFixed(3), drops: S.log.drops, typed: S.log.typed });
+    journal = journal.slice(-10);
+    save(JOURNAL_KEY, journal);
+
+    const names = { niveaux: `Niveau ${res.level}`, survie: 'Tempête · Survie' };
+    $('ovTitle').textContent = res.mode === 'survie' ? 'Fin de la tempête' : "Fin de l'averse";
+    $('ovMode').textContent = names[res.mode];
+    $('ovScore').innerHTML = res.max ? `${res.score} <small>/ ${res.max}</small>`
+      : res.mode === 'survie' ? `${res.score} <small>pts · niveau ${res.reached}</small>` : `${res.score} <small>pts</small>`;
+    $('ovRecord').innerHTML = isRecord ? '<span class="record">Nouveau record !</span>' : '';
+    $('ovPrec').textContent = fmtPct(res.prec);
+    $('ovSerie').textContent = res.bestStreak;
+    $('ovDrops').textContent = res.total != null ? `${res.cleared} / ${res.total}` : res.cleared;
+    $('ovExtra').textContent = fmtTime(res.avg);
+    setTimeout(() => show('over'), 450);
+  }
+  const fmtTime = s => s == null ? '–' : s.toFixed(1).replace('.', ',') + ' s';
+  const fmtPct = p => p == null ? '–' : Math.round(p * 100) + ' %';
+
+  function refreshModes() {
+    const bestLvl = stats.levels.reduce((m, r, i) => r.games ? i + 1 : m, 0);
+    $('recNiveaux').textContent = bestLvl ? `niv. ${bestLvl} joué` : '';
+    $('recSurvie').textContent = stats.survie.games ? `record ${stats.survie.best} · niv. ${stats.survie.bestLevel}` : '';
+  }
+  function refreshLevels() {
+    $('levelGrid').innerHTML = stats.levels.map((r, i) => {
+      const max = 1000 * (i + 1), pct = r.games ? Math.round(100 * r.best / max) : 0;
+      return `<button class="lvl" data-l="${i + 1}"><b>Niveau ${i + 1}</b><span>${r.games ? `${r.best} / ${max}` : `– / ${max}`}</span><div class="bar"><i style="width:${pct}%"></i></div></button>`;
+    }).join('');
+    $('levelGrid').querySelectorAll('.lvl').forEach(b => b.onclick = () => start('niveaux', +b.dataset.l));
+  }
+
+  // --- Tutoriel : 3 cartes illustrées ---
+  const dropSvg = (cx, cy, r, a, sym, b, gold) => {
+    const d = r * 1.9;
+    return `<path d="M ${cx} ${cy - d} C ${cx + r * .1} ${cy - d * .7}, ${cx + r} ${cy - r * .9}, ${cx + r} ${cy} A ${r} ${r} 0 1 1 ${cx - r} ${cy} C ${cx - r} ${cy - r * .9}, ${cx - r * .1} ${cy - d * .7}, ${cx} ${cy - d} Z"
+      fill="${gold ? '#ffd66b' : '#cfe9ff'}" stroke="${gold ? '#ffae2e' : '#7fb8ec'}" stroke-width="2"/>
+      <text x="${cx + 15}" y="${cy - 6}" text-anchor="end" font-size="16" font-weight="600" fill="#0b1a2e">${a}</text>
+      <text x="${cx - 17}" y="${cy + 6}" font-size="16" font-weight="600" fill="#0b1a2e">${sym}</text>
+      <text x="${cx + 15}" y="${cy + 16}" text-anchor="end" font-size="16" font-weight="600" fill="#0b1a2e">${b}</text>
+      ${gold ? `<text x="${cx}" y="${cy - r * 1.2}" text-anchor="middle" font-size="12" fill="#9a5b00">★</text>` : ''}`;
+  };
+  const TUTO = [
+    { t: 'Résous les gouttes', x: 'Chaque goutte porte un calcul. Tape le résultat sur le pavé, puis <b>OK</b> : la goutte éclate.',
+      s: `<svg viewBox="0 0 300 150">${dropSvg(95, 92, 30, 7, '×', 8)}
+        <rect x="170" y="62" width="96" height="44" rx="12" fill="#0f1d33" stroke="#6be3a4" stroke-width="2"/>
+        <text x="218" y="92" text-anchor="middle" font-size="26" font-weight="700" fill="#e8f1fb">56</text>
+        <path d="M 140 84 L 162 84" stroke="#8ea3bf" stroke-width="2" marker-end="url(#ar)"/>
+        <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#8ea3bf"/></marker></defs></svg>` },
+    { t: 'Un résultat, toutes ses gouttes', x: 'Toutes les gouttes qui donnent ce résultat éclatent ensemble. Après <b>10 gouttes d\'affilée</b>, chaque goutte compte double. Une erreur coûte le prix d\'une goutte.',
+      s: `<svg viewBox="0 0 300 150">${dropSvg(70, 90, 30, 3, '×', 4)}${dropSvg(150, 100, 30, 6, '+', 6)}
+        <rect x="200" y="70" width="80" height="44" rx="12" fill="#0f1d33" stroke="#6be3a4" stroke-width="2"/>
+        <text x="240" y="100" text-anchor="middle" font-size="26" font-weight="700" fill="#e8f1fb">12</text></svg>` },
+    { t: 'Ne les laisse pas tomber', x: 'Une goutte au sol casse la série ; en Tempête, <b>3 gouttes au sol</b> et c\'est fini. La <b>goutte dorée ★</b> fait éclater tout l\'écran. Chaque niveau s\'achève par une rafale.',
+      s: `<svg viewBox="0 0 300 150">${dropSvg(90, 82, 30, 9, '×', 6, true)}
+        <path d="M 0 132 Q 75 126 150 132 T 300 132 L 300 150 L 0 150 Z" fill="rgba(255,122,89,0.3)"/>
+        <path d="M 0 132 Q 75 126 150 132 T 300 132" stroke="#ff9d7f" stroke-width="2" fill="none"/>
+        <path d="M 225 10 L 210 60 L 228 60 L 214 128" stroke="#f4f8ff" stroke-width="3" fill="none" stroke-linejoin="round"/>
+        ${[0, 1, 2].map(i => `<path transform="translate(${180 + i * 26},86)" d="M9 1 C9 1 2 10 2 14.5 A7 7 0 0 0 16 14.5 C16 10 9 1 9 1Z" fill="#7fc6ff" opacity="${i === 2 ? .25 : 1}"/>`).join('')}</svg>` },
+  ];
+  let tutoIdx = 0;
+  function renderTuto() {
+    const c = TUTO[tutoIdx];
+    $('tutoTitle').textContent = c.t; $('tutoText').innerHTML = c.x; $('tutoIllus').innerHTML = c.s;
+    $('tutoDots').querySelectorAll('i').forEach((d, i) => d.classList.toggle('on', i === tutoIdx));
+    $('tutoNext').textContent = tutoIdx === TUTO.length - 1 ? 'Terminer' : 'Suivant';
+  }
+
+  // --- Stats : records et courbe de progression ---
+  let chartFilter = 'n1';
+  function refreshStats() {
+    const rows = stats.levels.map((r, i) => `<tr><td>Niveau ${i + 1}</td><td>${r.games}</td><td>${r.games ? r.best : '–'} / ${1000 * (i + 1)}</td><td>${r.bestSerie || '–'}</td></tr>`).join('');
+    const m = stats.survie;
+    $('recTable').innerHTML = `<tr><th>Mode</th><th>Parties</th><th>Record</th><th>Série</th></tr>${rows}
+      <tr><td class="sep">Tempête</td><td>${m.games}</td><td>${m.games ? `${m.best} · niv. ${m.bestLevel}` : '–'}</td><td>${m.bestSerie || '–'}</td></tr>`;
+    const filters = [...Array(10)].map((_, i) => ['n' + (i + 1), 'Niv. ' + (i + 1)]).concat([['survie', 'Tempête']]);
+    $('chips').innerHTML = filters.map(([k, l]) => `<button class="chip${k === chartFilter ? ' on' : ''}" data-k="${k}">${l}</button>`).join('');
+    $('chips').querySelectorAll('.chip').forEach(b => b.onclick = () => { chartFilter = b.dataset.k; refreshStats(); });
+    drawChart();
+  }
+  function drawChart() {
+    const c = $('chart'), r = c.getBoundingClientRect(), d = Math.min(window.devicePixelRatio || 1, 2.5);
+    c.width = Math.round(r.width * d); c.height = Math.round(r.height * d);
+    const g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0);
+    const w = r.width, h = r.height, pad = 22;
+    g.clearRect(0, 0, w, h);
+    const pts = stats.history.filter(e => chartFilter[0] === 'n' ? (e.mode === 'niveaux' && e.level === +chartFilter.slice(1)) : e.mode === chartFilter);
+    g.font = '500 12px Fredoka, system-ui, sans-serif'; g.fillStyle = '#8ea3bf'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    if (!pts.length) { g.fillText('Pas encore de partie ici', w / 2, h / 2); return; }
+    const isN = chartFilter[0] === 'n';   // Niveaux en % du max
+    const vals = pts.map(e => isN ? 100 * e.score / e.max : e.score);
+    const top = isN ? 100 : Math.max(...vals) * 1.1 || 1;
+    g.strokeStyle = '#1b2c47'; g.lineWidth = 1;
+    for (let i = 0; i <= 2; i++) { const y = pad + (h - 2 * pad) * i / 2; g.beginPath(); g.moveTo(pad, y); g.lineTo(w - 8, y); g.stroke(); }
+    g.textAlign = 'left'; g.fillText(isN ? '100 %' : String(Math.round(top)), 4, pad - 10);
+    const X = i => pts.length === 1 ? (w + pad) / 2 : pad + (w - pad - 12) * i / (pts.length - 1);
+    const Y = v => h - pad - (h - 2 * pad) * v / top;
+    g.strokeStyle = '#5fc4ff'; g.lineWidth = 2; g.beginPath();
+    vals.forEach((v, i) => i ? g.lineTo(X(i), Y(v)) : g.moveTo(X(i), Y(v))); g.stroke();
+    g.fillStyle = '#e8f1fb'; vals.forEach((v, i) => { g.beginPath(); g.arc(X(i), Y(v), 3, 0, Math.PI * 2); g.fill(); });
+    g.fillStyle = '#8ea3bf'; g.textAlign = 'center'; g.fillText(`${pts.length} partie${pts.length > 1 ? 's' : ''}`, w / 2, h - 9);
+  }
+
+  // --- Mode développeur : appui long de 2 s sur le titre ---
+  let devMode = !!load(DEV_KEY, false), devTimer = null;
+  function refreshDev() { $('devZone').classList.toggle('hidden', !devMode); $('devBox').classList.add('hidden'); }
+  $('title').addEventListener('pointerdown', () => { devTimer = setTimeout(() => { devMode = !devMode; save(DEV_KEY, devMode); refreshDev(); vibrate(40); }, 2000); });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => $('title').addEventListener(ev, () => clearTimeout(devTimer)));
+  $('devCopy').onclick = () => {
+    const txt = JSON.stringify(journal);
+    const box = $('devBox');
+    const fallback = () => { box.value = txt; box.classList.remove('hidden'); box.select(); $('devNote').textContent = 'Copie automatique refusée : sélectionne le texte ci-dessus.'; };
+    try {
+      navigator.clipboard.writeText(txt).then(() => { $('devNote').textContent = `${journal.length} partie(s) copiée(s).`; }, fallback);
+    } catch (e) { fallback(); }
+  };
+
+  // --- Navigation ---
+  $('goPlay').onclick = () => { refreshModes(); show('modes'); };
+  $('goTuto').onclick = () => { tutoIdx = 0; renderTuto(); show('tuto'); };
+  $('goStats').onclick = () => { show('stats'); refreshStats(); };
+  $('modesBack').onclick = () => show('home');
+  $('mNiveaux').onclick = () => { refreshLevels(); show('levels'); };
+  $('mSurvie').onclick = () => start('survie', 1);
+  $('levelsBack').onclick = () => { refreshModes(); show('modes'); };
+  $('tutoPrev').onclick = () => { if (tutoIdx === 0) show('home'); else { tutoIdx--; renderTuto(); } };
+  $('tutoNext').onclick = () => { if (tutoIdx === TUTO.length - 1) show('home'); else { tutoIdx++; renderTuto(); } };
+  $('statsBack').onclick = () => show('home');
+  let resetArmed = false;
+  $('statsReset').onclick = () => {
+    if (!resetArmed) { resetArmed = true; $('statsReset').textContent = 'Toucher encore pour confirmer'; return; }
+    resetArmed = false; $('statsReset').textContent = 'Effacer mes stats';
+    stats = emptyStats(); save(STATS_KEY, stats); refreshStats();
+  };
+  function pause() { if (S && S.playing && !S.paused) { S.paused = true; show('pause'); } }
+  function resume() { if (S && S.paused) { S.paused = false; last = performance.now(); show(null); } }
+  $('pauseBtn').onclick = pause;
+  $('resumeBtn').onclick = resume;
+  $('quitBtn').onclick = quitToHome;   // abandon : partie non comptée
+  $('againBtn').onclick = () => start(current.mode, current.level);
+  $('changeBtn').onclick = () => { S = null; updateHud(); if (current.mode === 'niveaux') { refreshLevels(); show('levels'); } else { refreshModes(); show('modes'); } };
+  $('homeBtn').onclick = quitToHome;
+  document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+
+  // pavé tactile : pointerdown pour la réactivité
+  document.querySelectorAll('#pad button').forEach(b => {
+    b.addEventListener('pointerdown', e => {
+      e.preventDefault(); press(b.dataset.k);
+      b.classList.add('pressed'); setTimeout(() => b.classList.remove('pressed'), 110);
+    });
+  });
+  // clavier
+  window.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { if (S && S.playing && !S.paused) pause(); else if (S && S.paused) resume(); return; }
+    if (S && S.playing && !S.paused) {
+      if (/^[0-9]$/.test(e.key)) { press(e.key); e.preventDefault(); }
+      else if (e.key === 'Backspace' || e.key === 'Delete') { press('del'); e.preventDefault(); }
+      else if (e.key === 'Enter') { press('ok'); e.preventDefault(); }
+    } else if ((e.key === 'Enter' || e.key === ' ') && $('over').classList.contains('show')) { e.preventDefault(); $('againBtn').click(); }
+  });
+
+  // démarrage
+  window.__averse = { Logic, Game, get S() { return S; }, start };   // accès pour les tests
+  new ResizeObserver(resize).observe(stage);
+  resize(); renderLives(); refreshDev(); show('home');
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
