@@ -3,6 +3,8 @@ import { CATEGORIES, modesDu, nomDuMode } from '../registre.js';
 import { icone } from '../icones.js';
 import { stats as statsDe, reglages as lireReglages, changerReglage, toutesLesDonnees, effacerTout } from '../stockage.js';
 import { nombre, lancerDecor, toast, confirmer, copier } from '../ui.js';
+import { VERSION_HUB } from '../version.js';
+import { rechercherMaj, versionPubliee } from '../maj.js';
 
 const APPARENCES = [['nuit', 'Nuit'], ['jour', 'Jour'], ['contraste', 'Contraste']];
 const couleur = jeu => jeu.couleur[lireReglages().apparence] || jeu.couleur.nuit;
@@ -47,7 +49,7 @@ export function stats({ app, jeux }) {
     <p class="mention">Stats enregistrées sur cet appareil, dans ce navigateur.</p></div>
     ${onglets('stats')}</section>`;
 }
-export function reglages({ app, rafraichir, appliquerApparence }) {
+export function reglages({ app, jeux, rafraichir, appliquerApparence }) {
   const r = lireReglages();
   const inter = (cle, nom, aide) => `<div><span>${nom}${aide ? `<small>${aide}</small>` : ''}</span><button class="interrupteur" role="switch" aria-checked="${!!r[cle]}" aria-label="${nom}" data-cle="${cle}"></button></div>`;
   app.innerHTML = `<section class="ecran hub"><h1 class="titre-onglet">Réglages</h1><div class="defile">
@@ -57,14 +59,25 @@ export function reglages({ app, rafraichir, appliquerApparence }) {
       ${inter('daltonisme', 'Aide daltonisme', 'Formes en plus des couleurs')}</div>
     <div class="liste"><button data-action="exporter">Exporter mes données<span class="discret-txt">Copier</span></button>
       <button data-action="effacer"><span class="danger">Effacer toutes mes données</span></button></div>
+    <div class="liste"><div><span>Version<small data-version>Brainer ${VERSION_HUB}${jeux.map(j => ` · ${j.nom} ${j.version}`).join('')}</small></span></div>
+      <button data-action="maj">Rechercher une mise à jour<span class="discret-txt">›</span></button></div>
     <p class="mention">Brainer · fonctionne hors ligne après la première visite</p></div>
     ${onglets('reglages')}</section>`;
+  versionPubliee().then(v => {
+    const el = app.querySelector('[data-version]');
+    if (v && v.date && el) el.textContent += ` · publiée le ${new Date(v.date).toLocaleDateString('fr-FR')}`;
+  });
   app.querySelector('.defile').addEventListener('click', async e => {
     const i = e.target.closest('.interrupteur');
     if (i) { const v = i.getAttribute('aria-checked') !== 'true'; changerReglage(i.dataset.cle, v); i.setAttribute('aria-checked', v); return }
-    const a = e.target.closest('[data-apparence]');
+    const a = e.target.closest('button[data-apparence]');
     if (a) { changerReglage('apparence', a.dataset.apparence); appliquerApparence(a.dataset.apparence); rafraichir(); return }
     const act = e.target.closest('[data-action]')?.dataset.action;
+    if (act === 'maj') {
+      const r = await rechercherMaj();
+      toast(r === 'disponible' ? 'Nouvelle version prête' : r === 'a-jour' ? 'Brainer est à jour' : 'Mises à jour indisponibles ici');
+      return;
+    }
     if (act === 'exporter') toast(await copier(JSON.stringify(toutesLesDonnees())) ? 'Données copiées' : 'Copie impossible');
     if (act === 'effacer' && await confirmer({ titre: 'Tout effacer ?', texte: 'Records, parties et réglages de tous les jeux seront supprimés de cet appareil.', oui: 'Effacer', danger: true })) {
       effacerTout(); appliquerApparence('nuit'); toast('Données effacées'); rafraichir();

@@ -938,7 +938,7 @@ export default {
   id: 'aiguillages',
   nom: 'Aiguillages',
   categorie: 'att',
-  version: 'v16',
+  version: '0.1.0',
   accroche: 'Chaque train à sa gare.',
   couleur: { nuit: '#ffb703', jour: '#9a4f00', contraste: '#e69f00' },
   vie: '<path fill-rule="evenodd" d="M6 3h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM7 6v4h10V6z"/><circle cx="8" cy="20" r="2"/><circle cx="16" cy="20" r="2"/>',

@@ -561,7 +561,7 @@ export default {
   id: 'averse',
   nom: 'Averse',
   categorie: 'num',
-  version: 'v16',
+  version: '0.1.0',
   accroche: 'Les calculs tombent du ciel. Résous-les avant qu’ils touchent le sol.',
   couleur: { nuit: '#5fc4ff', jour: '#1d64b5', contraste: '#56b4e9' },
   vie: '<path d="M12 2.5S5.5 10 5.5 14.5a6.5 6.5 0 0 0 13 0C18.5 10 12 2.5 12 2.5z"/>',

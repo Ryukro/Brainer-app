@@ -8,10 +8,11 @@ import { lancerDecor } from './ui.js';
 import * as hub from './ecrans/hub.js';
 import * as ecransJeu from './ecrans/jeu.js';
 import { lancerPartie } from './ecrans/partie.js';
+import { demarrerMaj, reafficher } from './maj.js';
 
 const app = document.getElementById('app');
 const canvasDecor = document.getElementById('decor');
-const etat = { jeux: [], nettoyer: () => {}, decorDe: undefined, arreterDecor: () => {} };
+const etat = { jeux: [], nettoyer: () => {}, decorDe: undefined, arreterDecor: () => {}, enPartie: false };
 
 const couleurDe = jeu => jeu.couleur[reglages().apparence] || jeu.couleur.nuit;
 
@@ -36,6 +37,7 @@ function aller(h) {
 function afficher() {
   try { etat.nettoyer() } catch (e) { console.error(e) }
   etat.nettoyer = () => {};
+  etat.enPartie = false;
   const [vue = 'jeux', id, sous = 'accueil'] = location.hash.slice(1).split('/');
   const ctx = { app, jeux: etat.jeux, aller, rafraichir: afficher, appliquerApparence };
   if (vue === 'jeu') {
@@ -45,6 +47,8 @@ function afficher() {
     ctx.jouer = (mode, niveau) => {
       try { etat.nettoyer() } catch (e) {}
       poserDecor(null);
+      etat.enPartie = true;
+      reafficher();
       etat.nettoyer = lancerPartie(ctx, mode, niveau);
     };
     app.style.setProperty('--jeu', couleurDe(jeu));
@@ -57,6 +61,7 @@ function afficher() {
     etat.nettoyer = hub[vue](ctx) || (() => {});
   }
   app.querySelector('h1,h2,.titre-onglet')?.setAttribute('tabindex', '-1');
+  reafficher();
 }
 
 async function demarrer() {
@@ -65,9 +70,7 @@ async function demarrer() {
   etat.jeux.forEach(importerSiBesoin);
   addEventListener('hashchange', afficher);
   afficher();
-  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-    navigator.serviceWorker.register('sw.js').catch(e => console.warn('Hors-ligne indisponible :', e));
-  }
+  demarrerMaj(() => etat.enPartie);
 }
 
 demarrer();
