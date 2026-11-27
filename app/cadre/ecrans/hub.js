@@ -24,7 +24,7 @@ export function jeux({ app, jeux }) {
     <div class="defile">${CATEGORIES.map(c => {
       const ici = jeux.filter(j => j.categorie === c.id);
       return `<section class="categorie"><h3>${icone(c.id)}${c.nom}</h3><p>${c.mesure}</p><div class="tuiles">
-        ${ici.map(j => `<a class="tuile" href="#jeu/${j.id}" style="--jeu:${couleur(j)}"><canvas data-jeu="${j.id}" aria-hidden="true"></canvas><b>${j.nom}</b><small>${resume(j)}</small></a>`).join('')}
+        ${ici.map(j => `<a class="tuile" href="#jeu/${j.id}" style="--jeu:${couleur(j)}"><div class="vignette"><canvas data-jeu="${j.id}" aria-hidden="true"></canvas></div><b>${j.nom}</b><small>${resume(j)}</small></a>`).join('')}
         ${'<div class="tuile bientot">Bientôt</div>'.repeat(Math.max(0, 3 - ici.length))}</div></section>`;
     }).join('')}<div style="height:16px"></div></div>
     ${onglets('jeux')}</section>`;

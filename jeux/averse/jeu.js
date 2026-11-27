@@ -37,9 +37,11 @@ function moteur(cv, opts) {
   }
   function resize() {
     DPR = Math.min(window.devicePixelRatio || 1, 2.5);
-    W = Math.max(1, cv.clientWidth); H = Math.max(1, cv.clientHeight);
-    cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
-    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    // petit canvas (vignette du hub) : on dessine un écran de 360 px de large, réduit à la taille du canvas
+    const K = Math.min(1, cv.clientWidth / 360);
+    W = Math.max(1, cv.clientWidth / K); H = Math.max(1, cv.clientHeight / K);
+    cv.width = Math.round(cv.clientWidth * DPR); cv.height = Math.round(cv.clientHeight * DPR);
+    ctx.setTransform(DPR * K, 0, 0, DPR * K, 0, 0);
     groundY = H - 22;
     // colonnes assez larges pour la plus grosse goutte possible
     ctx.font = OP_FONT;
@@ -459,13 +461,27 @@ function moteur(cv, opts) {
   let raf = 0, last = 0;
   function frame(ts) {
     const dt = Math.min(0.05, (ts - last) / 1000 || 0); last = ts;
-    if (S && S.playing && !S.paused) { Game.update(dt); if (S && S.playing) temps(); }
+    if (S && S.demo) demo(dt);
+    else if (S && S.playing && !S.paused) { Game.update(dt); if (S && S.playing) temps(); }
     if (!(S && S.paused)) updateAmbient(dt);
     draw();
     raf = requestAnimationFrame(frame);
   }
   resize();
   if (!opts.demo) Game.init(opts.mode, opts.level);
+  // décor (accueil, vignette du hub) : quelques gouttes de calcul tombent ; certaines éclatent en l'air
+  else S = { demo: true, playing: false, paused: false, ops: [], input: '', t: 0, clock: 0, lastSpawn: -10, lastCols: [], nextId: 1, deluge: false,
+    next: 0.3, makeOp: Logic.createPicker(Math.random), log: { drops: [] } };
+  function demo(dt) {
+    S.t += dt; S.clock += dt; S.next -= dt; S.log.drops.length = 0;
+    if (S.next <= 0) { if (S.ops.length < 5) Game.spawn(Math.random() < 0.1, { level: 3, fall: 7 }); S.next = rnd(0.6, 1.2); }
+    for (const o of S.ops) o.y += o.speed * dt;
+    const pop = S.ops.find(o => o.y > groundY * 0.55 && Math.random() < dt * 0.2);
+    if (pop) { splash(pop.x, pop.y, pop.special); FX.floaters.push({ x: pop.x, y: pop.y, text: '+' + (pop.special ? 5 : 1), life: 1 }); }
+    const sol = S.ops.filter(o => o.y + o.h / 2 >= groundY);
+    sol.forEach(o => groundSplash(o));
+    S.ops = S.ops.filter(o => o !== pop && !sol.includes(o));
+  }
   raf = requestAnimationFrame(frame);
   return {
     pause() { if (S) S.paused = true; },

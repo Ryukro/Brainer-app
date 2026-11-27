@@ -2,7 +2,7 @@
 // Coquille et cadre pré-chargés à l'installation ; tout le reste (jeux, décors) gardé au passage.
 // Stratégie : réponse immédiate depuis le cache, puis mise à jour en arrière-plan.
 // Changer VERSION à chaque livraison du cadre pour purger l'ancien cache.
-const VERSION = 'brainer-hub-2';
+const VERSION = 'brainer-hub-3';
 const COQUILLE = [
   './', 'index.html', 'manifest.webmanifest', 'icones/icone-192.png', 'icones/icone-512.png',
   'cadre/charte.css', 'cadre/app.js', 'cadre/ui.js', 'cadre/stockage.js', 'cadre/score.js',
