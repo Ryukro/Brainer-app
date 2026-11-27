@@ -1,0 +1,16 @@
+{
+  "name": "Brainer",
+  "short_name": "Brainer",
+  "description": "Mini-jeux pour entraîner et mesurer sa mémoire, son attention, son contrôle, son raisonnement, sa vision dans l'espace et son calcul.",
+  "lang": "fr",
+  "start_url": "./#jeux",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a1322",
+  "theme_color": "#0a1322",
+  "icons": [
+    { "src": "icones/icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icones/icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
